@@ -92,6 +92,28 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .vide .ic { width: 34px; height: 34px; display: block; margin: 0 auto 6px; }
 .vide .btn { margin-top: 12px; }
 
+/* Dessins d'exercices (masque teinté = une couleur qui suit le thème) */
+.dessin { flex: none; display: block; width: 44px; height: 52px; background: currentColor;
+  -webkit-mask: var(--d) center / contain no-repeat; mask: var(--d) center / contain no-repeat; }
+.dessin:not([style]) { background: none; }
+.dessin.mini { width: 30px; height: 34px; }
+.carte .dessin { margin: -4px -4px -4px 0; }
+.carte.fait .dessin { opacity: .45; }
+.f-dessin { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border: 1px solid var(--fin); border-radius: 10px;
+  background: var(--fond); text-align: left; min-height: 50px; }
+.f-dessin span { flex: 1; min-width: 0; }
+.f-dessin .ic { color: var(--discret); }
+.f-dessin .dessin:not([style]) { width: 0; margin-right: -10px; }
+.panneau-dessins { height: 86vh; }
+.panneau-dessins .recherche { flex: none; flex-direction: row; margin: 0; background: var(--fond); font-size: 16px; }
+.panneau-dessins .recherche input { height: auto; padding: 0; border: 0; background: none; }
+.grille-dessins { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-content: start; }
+.grille-dessins button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border: 1px solid var(--fin);
+  border-radius: 10px; background: var(--fond); font-size: 12px; line-height: 1.2; color: var(--encre); }
+.grille-dessins button .dessin { width: 56px; height: 64px; }
+.grille-dessins button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.grille-dessins .aucun { width: 56px; height: 64px; border: 1.5px dashed var(--fin); border-radius: 8px; }
+
 /* Choix de la séance */
 .choix { display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; background: var(--carte);
   border: 1px solid var(--fin); border-radius: 14px; box-shadow: var(--ombre); }
@@ -124,6 +146,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .liste li:active { background: var(--fond); }
 .liste .nom { flex: 1; min-width: 0; font-weight: 600; }
 .liste .qte { color: var(--discret); font-size: 13px; white-space: nowrap; }
+.liste li[data-id] { align-items: center; padding: 5px 12px 5px 8px; }
 .liste .zone-titre { padding: 6px 12px 3px; background: var(--fond); color: var(--discret); font-size: 12px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .04em; cursor: default; }
 

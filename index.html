@@ -88,7 +88,9 @@
     <button class="ligne lien" id="ouvrir-notes"><span>Notes</span><svg class="ic"><use href="#i-suite"/></svg></button>
   </div>
 
-  <div class="version">Version <span id="version"></span></div>
+  <div class="version">Version <span id="version"></span><br>
+    Dessins : <a href="https://github.com/AlexMollard/Open-Exercise-Art" target="_blank" rel="noopener">Open Exercise Art</a> / Alex Mollard,
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.fr" target="_blank" rel="noopener">CC BY-SA 4.0</a></div>
 </section>
 
 <!-- ============ THÈME ============ -->
@@ -119,8 +121,21 @@
     <label>Quantité<input id="f-qte" maxlength="60" placeholder="3 × 12, 40 s…"></label>
     <label>Zone<input id="f-zone" maxlength="40"></label>
     <div id="f-zones" class="puces"></div>
+    <button type="button" class="f-dessin" id="f-dessin"></button>
     <button class="btn plein" type="submit">Enregistrer</button>
   </form>
+</div>
+
+<!-- ============ CHOIX DU DESSIN ============ -->
+<div id="voile-dessins" class="voile" hidden>
+  <div class="fiche panneau-dessins">
+    <div class="fiche-tete">
+      <h3>Dessin</h3>
+      <button type="button" class="ico" id="dessins-fermer" aria-label="Fermer"><svg class="ic"><use href="#i-croix"/></svg></button>
+    </div>
+    <label class="recherche"><svg class="ic"><use href="#i-chercher"/></svg><input id="recherche-dessin" type="search" placeholder="Chercher…"></label>
+    <div id="grille-dessins" class="grille-dessins"></div>
+  </div>
 </div>
 
 <div id="message" class="message" hidden></div>

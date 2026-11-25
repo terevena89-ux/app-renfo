@@ -1,9 +1,10 @@
 // Service worker : copie des fichiers pour marcher hors ligne.
 // À CHAQUE NOUVELLE VERSION : changer le numéro ci-dessous.
-const CACHE = "renfo-v0.2.0";
+const CACHE = "renfo-v0.3.0";
+const DESSINS = "renfo-dessins";
 
 const FICHIERS = [
-  "./", "index.html", "style.css", "app.js", "champs-mobile.js", "notes-idees.js", "excel-style.js",
+  "./", "index.html", "style.css", "app.js", "dessins.js", "champs-mobile.js", "notes-idees.js", "excel-style.js",
   "manifest.json", "icones/icone.svg", "icones/icone-192.png"
 ];
 
@@ -20,7 +21,7 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
-      .then(noms => Promise.all(noms.filter(n => n !== CACHE).map(n => caches.delete(n))))
+      .then(noms => Promise.all(noms.filter(n => n !== CACHE && n !== DESSINS).map(n => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });
@@ -38,6 +39,17 @@ self.addEventListener("fetch", e => {
         caches.open(CACHE).then(c => c.put(req, clone));
         return rep;
       }))
+    );
+    return;
+  }
+
+  // Drawings never change (4 MB): cache first, kept across versions, fetched only when shown.
+  if (url.origin === location.origin && url.pathname.includes("/dessins/")) {
+    e.respondWith(
+      caches.open(DESSINS).then(c => c.match(req).then(copie => copie || fetch(req).then(rep => {
+        if (rep.ok) c.put(req, rep.clone());
+        return rep;
+      })))
     );
     return;
   }

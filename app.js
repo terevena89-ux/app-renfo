@@ -3,8 +3,9 @@
 // (localStorage, pas de synchro) ; Excel sert de sauvegarde.
 // =========================================================
 import { chargerExcelJS, ajouterFeuille, telechargerClasseur, lireClasseur, lireFeuille } from "./excel-style.js";
+import { DESSINS, DESSIN_DEPART } from "./dessins.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const CLE_DONNEES = "renfo-donnees";
 const CLE_FEELING = "renfo-feeling";
 const DUREE_APPUI = 550; // ms d'appui long pour valider
@@ -40,6 +41,12 @@ let donnees = lireJSON(CLE_DONNEES) || {
   jours: {}, repos: [], forces: [], idees: ""
 };
 donnees.forces ||= []; // days trained despite being rest days
+// Exercices d'avant la 0.3 : dessin posé d'après le nom (une seule fois : "" = aucun).
+for (const e of donnees.exercices) if (e.dessin === undefined) e.dessin = DESSIN_DEPART[e.nom] || "";
+
+const NOM_DESSIN = Object.fromEntries(DESSINS);
+// Drawing = CSS mask over currentColor: one colour that follows the theme.
+const htmlDessin = (d, cl = "dessin") => d && NOM_DESSIN[d] ? `<i class="${cl}" style="--d:url(dessins/${d}.svg)"></i>` : "";
 
 function sauver() {
   try { localStorage.setItem(CLE_DONNEES, JSON.stringify(donnees)); }
@@ -173,6 +180,7 @@ function afficherJour(vient) {
     const e = exo(id), fait = j.faits.includes(id);
     return `<div class="carte ${fait ? "fait" : ""} ${vient === id ? "vient" : ""}" data-id="${id}">
       <div class="rond"><span>${i + 1}</span><svg class="ic"><use href="#i-coche"/></svg></div>
+      ${htmlDessin(e.dessin)}
       <div class="corps"><div class="nom">${esc(e.nom)}</div>
         <div class="detail">${e.qte ? `<span>${esc(e.qte)}</span>` : ""}${e.zone ? `<span class="tag">${esc(e.zone)}</span>` : ""}</div></div>
       <button class="ico" data-action="autre" aria-label="Autre exercice"><svg class="ic"><use href="#i-autre"/></svg></button>
@@ -348,6 +356,7 @@ function aller(id) { pile.push(id); history.pushState({ n: pile.length }, ""); m
 let ignorerPop = false; // history.back() done by fermerFiche itself
 addEventListener("popstate", () => {
   if (ignorerPop) { ignorerPop = false; return; }
+  if (!$("voile-dessins").hidden) { fermerDessins(true); return; }
   if (!$("voile-fiche").hidden) { fermerFiche(true); return; }
   if (pile.length > 1) pile.pop();
   montrer(pile[pile.length - 1]);
@@ -369,7 +378,7 @@ function afficherListe() {
   let html = "", zoneAvant = null;
   for (const e of liste) {
     if (e.zone !== zoneAvant) { html += `<li class="zone-titre">${esc(e.zone || "Sans zone")}</li>`; zoneAvant = e.zone; }
-    html += `<li data-id="${e.id}"><span class="nom">${esc(e.nom)}</span><span class="qte">${esc(e.qte)}</span></li>`;
+    html += `<li data-id="${e.id}">${htmlDessin(e.dessin, "dessin mini") || `<i class="dessin mini"></i>`}<span class="nom">${esc(e.nom)}</span><span class="qte">${esc(e.qte)}</span></li>`;
   }
   $("liste-exercices").innerHTML = html || `<li class="zone-titre">Aucun exercice</li>`;
 }
@@ -381,12 +390,13 @@ $("liste-exercices").addEventListener("click", e => {
 $("btn-ajouter").addEventListener("click", () => ouvrirFiche(null));
 
 // ---------- 10. Fiche exercice ----------
-let ficheId = null;
+let ficheId = null, ficheDessin = "";
 function ouvrirFiche(id) {
   ficheId = id;
-  const e = id ? exo(id) : { nom: "", qte: "", zone: "" };
+  const e = id ? exo(id) : { nom: "", qte: "", zone: "", dessin: "" };
   $("fiche-titre").textContent = id ? "Exercice" : "Nouvel exercice";
   $("f-nom").value = e.nom; $("f-qte").value = e.qte; $("f-zone").value = e.zone;
+  ficheDessin = e.dessin || ""; boutonDessin();
   $("btn-plus").hidden = !id;
   $("menu-plus").hidden = true;
   puces();
@@ -417,11 +427,43 @@ $("btn-plus").addEventListener("click", () => { $("menu-plus").hidden = !$("menu
 $("fiche").addEventListener("submit", e => {
   e.preventDefault();
   const nom = $("f-nom").value.trim(); if (!nom) return;
-  const vals = { nom, qte: $("f-qte").value.trim(), zone: $("f-zone").value.trim() };
+  const vals = { nom, qte: $("f-qte").value.trim(), zone: $("f-zone").value.trim(), dessin: ficheDessin };
   if (ficheId) Object.assign(exo(ficheId), vals);
   else donnees.exercices.push({ id: nouvelId(), ...vals });
   sauver(); fermerFiche(); afficherListe();
 });
+
+// ---------- 10b. Choix du dessin (2e pop-up par-dessus la fiche) ----------
+function boutonDessin() {
+  $("f-dessin").innerHTML = (htmlDessin(ficheDessin) || `<i class="dessin"></i>`) +
+    `<span>${ficheDessin ? esc(NOM_DESSIN[ficheDessin] || "") : "Choisir un dessin"}</span><svg class="ic"><use href="#i-suite"/></svg>`;
+}
+const sansAccent = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function grilleDessins() {
+  const q = sansAccent($("recherche-dessin").value.trim());
+  const liste = DESSINS.filter(([f, n]) => !q || sansAccent(n).includes(q) || f.includes(q));
+  $("grille-dessins").innerHTML = (q ? "" : `<button data-d="" aria-pressed="${!ficheDessin}"><i class="dessin aucun"></i><span>Aucun</span></button>`) +
+    liste.map(([f, n]) => `<button data-d="${f}" aria-pressed="${f === ficheDessin}">${htmlDessin(f)}<span>${esc(n)}</span></button>`).join("");
+}
+$("f-dessin").addEventListener("click", () => {
+  $("recherche-dessin").value = "";
+  grilleDessins();
+  $("voile-dessins").hidden = false;
+  history.pushState({ dessins: true }, "");
+  $("grille-dessins").querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: "center" });
+});
+function fermerDessins(fromHistory) {
+  if ($("voile-dessins").hidden) return;
+  $("voile-dessins").hidden = true;
+  if (!fromHistory) { ignorerPop = true; history.back(); }
+}
+$("recherche-dessin").addEventListener("input", grilleDessins);
+$("grille-dessins").addEventListener("click", e => {
+  const b = e.target.closest("[data-d]"); if (!b) return;
+  ficheDessin = b.dataset.d; boutonDessin(); fermerDessins();
+});
+$("dessins-fermer").addEventListener("click", () => fermerDessins());
+$("voile-dessins").addEventListener("pointerdown", e => { if (e.target === e.currentTarget) fermerDessins(); });
 
 $("btn-supprimer").addEventListener("click", () => {
   const i = donnees.exercices.findIndex(e => e.id === ficheId);
@@ -485,15 +527,18 @@ $("btn-exporter").addEventListener("click", async () => {
     const c = new ExcelJS.Workbook();
     ajouterFeuille(c, "Exercices", [
       { header: "Nom", key: "nom", width: 44 }, { header: "Quantité", key: "qte", width: 20 }, { header: "Zone", key: "zone", width: 16 },
+      { header: "Dessin", key: "dessin", width: 30 },
     ], [...donnees.exercices]);
     const nomDe = id => exo(id)?.nom || "";
+    const cols = [1, 2, 3, 4, 5, 6];
     ajouterFeuille(c, "Historique", [
-      { header: "Date", key: "date", width: 12 }, { header: "Exercice 1", key: "e1", width: 34 },
-      { header: "Exercice 2", key: "e2", width: 34 }, { header: "Exercice 3", key: "e3", width: 34 },
+      { header: "Date", key: "date", width: 12 }, { header: "Parties", key: "zones", width: 20 },
+      ...cols.map(n => ({ header: `Exercice ${n}`, key: `e${n}`, width: 30 })),
       { header: "Faits", key: "faits", width: 8 },
     ], Object.keys(donnees.jours).sort().reverse().map(k => {
       const j = donnees.jours[k];
-      return { date: k, e1: nomDe(j.ids[0]), e2: nomDe(j.ids[1]), e3: nomDe(j.ids[2]), faits: `${j.faits.length}/${j.ids.length}` };
+      return { date: k, zones: (j.zones || []).join(", "), ...Object.fromEntries(cols.map(n => [`e${n}`, nomDe(j.ids[n - 1])])),
+               faits: `${j.faits.length}/${j.ids.length}` };
     }));
     ajouterFeuille(c, "Repos", [{ header: "Jour de repos", key: "j", width: 16 }],
       donnees.repos.map(n => ({ j: ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"][n] })));
@@ -509,15 +554,17 @@ $("fichier-import").addEventListener("change", async e => {
     const c = await lireClasseur(f);
     const lignes = lireFeuille(c.getWorksheet("Exercices")).filter(l => l.Nom);
     if (!lignes.length) throw new Error("Feuille « Exercices » vide ou absente");
-    const exercices = lignes.map(l => ({ id: nouvelId(), nom: l.Nom, qte: l["Quantité"] || "", zone: l.Zone || "" }));
+    const exercices = lignes.map(l => ({ id: nouvelId(), nom: l.Nom, qte: l["Quantité"] || "", zone: l.Zone || "",
+      dessin: NOM_DESSIN[l.Dessin] ? l.Dessin : (l.Dessin === undefined ? DESSIN_DEPART[l.Nom] || "" : "") }));
     const parNom = Object.fromEntries(exercices.map(x => [x.nom, x.id]));
     // History stores names; ones not in the list anymore are dropped.
     const jours = {};
     for (const l of lireFeuille(c.getWorksheet("Historique"))) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(l.Date)) continue;
-      const ids = [l["Exercice 1"], l["Exercice 2"], l["Exercice 3"]].map(n => parNom[n]).filter(Boolean);
+      const ids = [1, 2, 3, 4, 5, 6].map(n => parNom[l[`Exercice ${n}`]]).filter(Boolean);
       const nb = parseInt(l.Faits) || 0;
-      if (ids.length) jours[l.Date] = { ids, faits: ids.slice(0, nb) };
+      const zs = String(l.Parties || "").split(",").map(z => z.trim()).filter(Boolean);
+      if (ids.length) jours[l.Date] = { ids, faits: ids.slice(0, nb), zones: zs.length ? zs : null };
     }
     const noms = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
     const repos = lireFeuille(c.getWorksheet("Repos")).map(l => noms.indexOf(String(l["Jour de repos"]).toLowerCase())).filter(n => n >= 0);
