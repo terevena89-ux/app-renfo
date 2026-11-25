@@ -4,10 +4,9 @@
 // =========================================================
 import { chargerExcelJS, ajouterFeuille, telechargerClasseur, lireClasseur, lireFeuille } from "./excel-style.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const CLE_DONNEES = "renfo-donnees";
 const CLE_FEELING = "renfo-feeling";
-const PAR_JOUR = 3;
 const DUREE_APPUI = 550; // ms d'appui long pour valider
 const $ = id => document.getElementById(id);
 const JOURS_COURTS = ["D", "L", "M", "M", "J", "V", "S"]; // index = getDay()
@@ -72,12 +71,17 @@ function idsVeille(auj) {
   const avant = Object.keys(donnees.jours).filter(k => k < auj).sort().pop();
   return avant ? donnees.jours[avant].ids : [];
 }
-// Choisit un exercice hors de « exclus », en évitant d'abord ceux de la veille.
-function piocher(exclus, zone) {
+// Exercices d'une liste de zones (null = toutes : vieux programmes d'avant les zones).
+const dansZones = zs => donnees.exercices.filter(e => !zs || zs.includes(e.zone));
+
+// Choisit un exercice hors de « exclus » : même zone d'abord, puis les autres zones
+// de la séance (jamais hors séance), en évitant d'abord ceux de la veille.
+function piocher(exclus, zone, zonesSeance) {
   const veille = idsVeille(cleDate(new Date()));
-  const libres = donnees.exercices.filter(e => !exclus.includes(e.id));
+  const libres = dansZones(zonesSeance).filter(e => !exclus.includes(e.id));
   const essais = [
     libres.filter(e => !veille.includes(e.id) && (!zone || e.zone === zone)),
+    libres.filter(e => !zone || e.zone === zone),
     libres.filter(e => !veille.includes(e.id)),
     libres,
   ];
@@ -85,25 +89,31 @@ function piocher(exclus, zone) {
   return null;
 }
 
-// Programme du jour : créé une fois, puis gardé. Exercices supprimés entre-temps = remplacés.
+// Séance : n exercices partagés moitié-moitié entre les zones (la 1re touchée en a plus).
+function tirer(zs, n) {
+  const ids = [];
+  zs.forEach((z, i) => {
+    const part = i === 0 ? Math.ceil(n / zs.length) : n - ids.length;
+    for (let k = 0; k < part; k++) { const id = piocher(ids, z, [z]); if (id) ids.push(id); }
+  });
+  // Zone trop petite : on complète avec l'autre zone choisie.
+  while (ids.length < n) { const id = piocher(ids, null, zs); if (!id) break; ids.push(id); }
+  donnees.jours[cleDate(new Date())] = { ids, faits: [], zones: zs };
+  sauver();
+}
+
+// Programme du jour (null = pas encore tiré). Exercices supprimés entre-temps = remplacés.
 function programmeDuJour() {
   const auj = cleDate(new Date());
-  let j = donnees.jours[auj];
-  if (!j) {
-    const veille = idsVeille(auj);
-    const ordre = [...melanger(donnees.exercices.filter(e => !veille.includes(e.id))),
-                   ...melanger(donnees.exercices.filter(e => veille.includes(e.id)))];
-    j = { ids: ordre.slice(0, PAR_JOUR).map(e => e.id), faits: [] };
-    if (j.ids.length) { donnees.jours[auj] = j; sauver(); }
-  } else {
-    const avant = j.ids.length;
-    j.ids = j.ids.filter(exo);
-    j.faits = j.faits.filter(id => j.ids.includes(id));
-    while (j.ids.length < Math.min(PAR_JOUR, donnees.exercices.length)) {
-      const id = piocher(j.ids); if (!id) break; j.ids.push(id);
-    }
-    if (j.ids.length !== avant) sauver();
-  }
+  const j = donnees.jours[auj];
+  if (!j) return null;
+  if (!j.zones && !j.faits.length) { delete donnees.jours[auj]; sauver(); return null; } // v0.1 draw: let the user choose
+  const avant = j.ids.join(), voulu = j.ids.length;
+  j.ids = j.ids.filter(exo);
+  j.faits = j.faits.filter(id => j.ids.includes(id));
+  while (j.ids.length < voulu) { const id = piocher(j.ids, null, j.zones); if (!id) break; j.ids.push(id); }
+  if (!j.ids.length) { delete donnees.jours[auj]; sauver(); return null; }
+  if (j.ids.join() !== avant) sauver();
   return j;
 }
 
@@ -158,6 +168,7 @@ function afficherJour(vient) {
     return;
   }
   const j = programmeDuJour();
+  if (!j) { afficherChoix(zone); return; }
   zone.innerHTML = j.ids.map((id, i) => {
     const e = exo(id), fait = j.faits.includes(id);
     return `<div class="carte ${fait ? "fait" : ""} ${vient === id ? "vient" : ""}" data-id="${id}">
@@ -169,6 +180,27 @@ function afficherJour(vient) {
   }).join("") + (jourFait(j) ? `<div class="bravo ${vient ? "pop" : ""}"><b>Séance faite</b>${s > 1 ? `${s} jours d'affilée` : "À demain"}</div>` : "");
 }
 
+// ---------- 5b. Choix de la séance : 1 ou 2 zones + nombre d'exercices ----------
+const choix = { zones: [], n: donnees.nbSeance || 3 };
+function bornes() {
+  const dispo = choix.zones.length ? dansZones(choix.zones).length : 6;
+  const max = Math.min(6, dispo);
+  return { min: Math.min(2, max), max };
+}
+function afficherChoix(zone) {
+  choix.zones = choix.zones.filter(z => zones().includes(z));
+  const { min, max } = bornes();
+  choix.n = Math.max(min, Math.min(max, choix.n));
+  zone.innerHTML = `<div class="choix">
+    <div class="puces grandes">${zones().map(z => `<button data-action="zone" aria-pressed="${choix.zones.includes(z)}">${esc(z)}</button>`).join("")}</div>
+    <div class="nombre"><span>Exercices</span>
+      <button class="ico" data-action="moins" aria-label="Moins" ${choix.n <= min ? "disabled" : ""}><svg class="ic"><use href="#i-moins"/></svg></button>
+      <b>${choix.n}</b>
+      <button class="ico" data-action="plus" aria-label="Plus" ${choix.n >= max ? "disabled" : ""}><svg class="ic"><use href="#i-plus"/></svg></button></div>
+    <button class="btn plein" data-action="tirer" ${choix.zones.length ? "" : "disabled"}>C'est parti</button>
+  </div>`;
+}
+
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 $("programme").addEventListener("click", e => {
@@ -176,9 +208,22 @@ $("programme").addEventListener("click", e => {
   if (!b) return;
   if (b.dataset.action === "ajouter") ouvrirFiche(null);
   if (b.dataset.action === "forcer") { donnees.forces.push(cleDate(new Date())); sauver(); afficherJour(); }
+  if (b.dataset.action === "zone") {
+    const z = b.textContent, i = choix.zones.indexOf(z);
+    if (i >= 0) choix.zones.splice(i, 1);
+    else { choix.zones.push(z); if (choix.zones.length > 2) choix.zones.shift(); } // 2 max: oldest leaves
+    afficherJour();
+  }
+  if (b.dataset.action === "moins") { choix.n--; afficherJour(); }
+  if (b.dataset.action === "plus") { choix.n++; afficherJour(); }
+  if (b.dataset.action === "tirer") {
+    donnees.nbSeance = choix.n;
+    tirer(choix.zones, choix.n);
+    afficherJour();
+  }
   if (b.dataset.action === "autre") {
     const j = programmeDuJour(), id = b.closest(".carte").dataset.id;
-    const nouveau = piocher(j.ids, exo(id).zone);
+    const nouveau = piocher(j.ids, exo(id).zone, j.zones);
     if (!nouveau) { message("Pas d'autre exercice"); return; }
     j.ids[j.ids.indexOf(id)] = nouveau;
     sauver(); afficherJour();

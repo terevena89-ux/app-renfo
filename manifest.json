@@ -1,7 +1,7 @@
 {
   "name": "Renfo",
   "short_name": "Renfo",
-  "description": "Trois exercices de renfo par jour.",
+  "description": "Séances de renfo par partie du corps.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

@@ -1,6 +1,6 @@
 // Service worker : copie des fichiers pour marcher hors ligne.
 // À CHAQUE NOUVELLE VERSION : changer le numéro ci-dessous.
-const CACHE = "renfo-v0.1.0";
+const CACHE = "renfo-v0.2.0";
 
 const FICHIERS = [
   "./", "index.html", "style.css", "app.js", "champs-mobile.js", "notes-idees.js", "excel-style.js",
