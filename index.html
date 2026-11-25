@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Renfo</title>
+  <meta name="description" content="Trois exercices de renfo par jour.">
+  <meta name="theme-color" content="#f5f2ec">
+  <script>
+    // Theme applied before first paint (no white flash). Per-device setting.
+    (function () {
+      var choix = "auto";
+      try { choix = (JSON.parse(localStorage.getItem("renfo-feeling")) || {}).theme || "auto"; } catch (e) {}
+      var sombreTel = matchMedia("(prefers-color-scheme: dark)");
+      function appliquer() {
+        var theme = choix === "auto" ? (sombreTel.matches ? "sombre" : "clair") : choix;
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === "sombre" ? "#171c24" : "#f5f2ec";
+      }
+      appliquer();
+      sombreTel.addEventListener("change", appliquer);
+      window.appliquerTheme = function (nouveau) { choix = nouveau; appliquer(); };
+    })();
+  </script>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icones/icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icones/icone-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ AUJOURD'HUI ============ -->
+<main id="ecran-jour" class="ecran">
+  <header class="tete">
+    <h1>Renfo</h1>
+    <span id="serie" class="serie" hidden></span>
+    <button class="ico" id="btn-exercices" aria-label="Exercices"><svg class="ic"><use href="#i-liste"/></svg></button>
+    <button class="ico" id="btn-reglages" aria-label="Réglages"><svg class="ic"><use href="#i-reglages"/></svg></button>
+  </header>
+  <div class="date" id="date-jour"></div>
+  <div class="semaine" id="semaine"></div>
+  <div id="programme"></div>
+</main>
+
+<!-- ============ EXERCICES ============ -->
+<section id="ecran-exercices" class="ecran" hidden>
+  <header class="tete">
+    <button class="ico" data-retour aria-label="Retour"><svg class="ic"><use href="#i-retour"/></svg></button>
+    <h1>Exercices</h1>
+    <button class="ico" id="btn-ajouter" aria-label="Ajouter"><svg class="ic"><use href="#i-plus"/></svg></button>
+  </header>
+  <label class="recherche"><svg class="ic"><use href="#i-chercher"/></svg><input id="recherche" type="search" placeholder="Chercher…"></label>
+  <ul id="liste-exercices" class="liste"></ul>
+</section>
+
+<!-- ============ RÉGLAGES ============ -->
+<section id="ecran-reglages" class="ecran" hidden>
+  <header class="tete">
+    <button class="ico" data-retour aria-label="Retour"><svg class="ic"><use href="#i-retour"/></svg></button>
+    <h1>Réglages</h1>
+  </header>
+
+  <h2>Programme</h2>
+  <div class="bloc">
+    <div class="ligne"><span>Jours de repos</span></div>
+    <div class="ligne"><div id="jours-repos" class="jours"></div></div>
+    <button class="ligne lien" id="voir-exercices"><span>Exercices</span><svg class="ic"><use href="#i-suite"/></svg></button>
+  </div>
+
+  <h2>Affichage</h2>
+  <div class="bloc">
+    <button class="ligne lien" id="voir-theme"><span>Thème</span><em id="theme-actuel"></em><svg class="ic"><use href="#i-suite"/></svg></button>
+    <div class="ligne"><span>Animations</span>
+      <div class="segments" data-reglage="animations"><button data-val="completes">Complètes</button><button data-val="simples">Simples</button></div></div>
+    <div class="ligne"><span>Son</span>
+      <div class="segments" data-reglage="son"><button data-val="oui">Oui</button><button data-val="non">Non</button></div></div>
+    <div class="ligne"><span>Vibration</span>
+      <div class="segments" data-reglage="vibration"><button data-val="oui">Oui</button><button data-val="non">Non</button></div></div>
+  </div>
+
+  <h2>Données</h2>
+  <div class="bloc">
+    <div class="ligne deux">
+      <button class="btn" id="btn-exporter"><svg class="ic"><use href="#i-exporter"/></svg>Exporter</button>
+      <button class="btn" id="btn-importer"><svg class="ic"><use href="#i-importer"/></svg>Importer</button>
+      <input type="file" id="fichier-import" accept=".xlsx" hidden>
+    </div>
+    <button class="ligne lien" id="ouvrir-notes"><span>Notes</span><svg class="ic"><use href="#i-suite"/></svg></button>
+  </div>
+
+  <div class="version">Version <span id="version"></span></div>
+</section>
+
+<!-- ============ THÈME ============ -->
+<section id="ecran-theme" class="ecran" hidden>
+  <header class="tete">
+    <button class="ico" data-retour aria-label="Retour"><svg class="ic"><use href="#i-retour"/></svg></button>
+    <h1>Thème</h1>
+  </header>
+  <div class="bloc" id="choix-theme">
+    <button class="ligne lien" data-theme-choix="auto"><span>Auto</span><svg class="ic coche"><use href="#i-coche"/></svg></button>
+    <button class="ligne lien" data-theme-choix="clair"><span>Clair</span><svg class="ic coche"><use href="#i-coche"/></svg></button>
+    <button class="ligne lien" data-theme-choix="sombre"><span>Sombre</span><svg class="ic coche"><use href="#i-coche"/></svg></button>
+  </div>
+</section>
+
+<!-- ============ FICHE EXERCICE (pop-up du bas) ============ -->
+<div id="voile-fiche" class="voile" hidden>
+  <form id="fiche" class="fiche" autocomplete="off">
+    <div class="fiche-tete">
+      <h3 id="fiche-titre">Exercice</h3>
+      <div class="menu-plus">
+        <button type="button" class="ico" id="btn-plus" aria-label="Plus"><svg class="ic"><use href="#i-plus-menu"/></svg></button>
+        <div id="menu-plus" class="menu" hidden><button type="button" id="btn-supprimer">Supprimer</button></div>
+      </div>
+      <button type="button" class="ico" id="fiche-fermer" aria-label="Fermer"><svg class="ic"><use href="#i-croix"/></svg></button>
+    </div>
+    <label>Nom<input id="f-nom" required maxlength="80"></label>
+    <label>Quantité<input id="f-qte" maxlength="60" placeholder="3 × 12, 40 s…"></label>
+    <label>Zone<input id="f-zone" maxlength="40"></label>
+    <div id="f-zones" class="puces"></div>
+    <button class="btn plein" type="submit">Enregistrer</button>
+  </form>
+</div>
+
+<div id="message" class="message" hidden></div>
+<canvas id="confettis" hidden></canvas>
+
+<!-- Icônes au trait fin (style Tabler) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-liste" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01"/></symbol>
+    <symbol id="i-reglages" viewBox="0 0 24 24"><path d="M10.3 4.3c.4-1.8 3-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.5 1.8 3 0 3.5a1.7 1.7 0 0 0-1 2.5c.9 1.5-.9 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.9-3 1.9-3.4 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.9-2.4-2.4a1.7 1.7 0 0 0-1-2.5c-1.8-.5-1.8-3 0-3.5a1.7 1.7 0 0 0 1-2.5c-.9-1.6.9-3.3 2.4-2.4a1.7 1.7 0 0 0 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-retour" viewBox="0 0 24 24"><path d="M5 12h14M5 12l6 6M5 12l6-6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-croix" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="i-chercher" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7"/><path d="M21 21l-6-6"/></symbol>
+    <symbol id="i-suite" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-coche" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></symbol>
+    <symbol id="i-autre" viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></symbol>
+    <symbol id="i-flamme" viewBox="0 0 24 24"><path d="M12 12c2-2.96 0-7-1-8 0 3.04-1.77 4.74-3 6-1.23 1.27-2 3.27-2 5a6 6 0 1 0 12 0c0-1.5-1.06-3.86-2-5-1.79 3-2.8 3-4 2z"/></symbol>
+    <symbol id="i-plus-menu" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
+    <symbol id="i-exporter" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></symbol>
+    <symbol id="i-importer" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v12"/></symbol>
+    <symbol id="i-lune" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></symbol>
+  </defs>
+</svg>
+
+<script src="champs-mobile.js"></script>
+<script src="notes-idees.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
